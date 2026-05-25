@@ -124,6 +124,17 @@ web-scraper-cli/
 
 ---
 
+
+## 💖 支持项目
+
+如果你觉得这个工具对你有帮助，欢迎打赏支持开源：
+
+<p align="center">
+  <img src="assets/alipay_qrcode.jpg" alt="支付宝收款码" width="220" />
+  <br />
+  <sub>扫码支持有灵 ✨</sub>
+</p>
+
 ## 📜 License
 
 MIT License
