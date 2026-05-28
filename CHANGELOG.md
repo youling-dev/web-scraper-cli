@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.4.0] - 2026-05-28
+
+### Added
+- 📊 `--markdown` / `-M` — Markdown 表格输出，直接用于文档和报告
+- 💾 `--sqlite` / `-S` — SQLite 数据库导出，支持长期数据存储和查询
+- 🏷️ `--table-name` — SQLite 表名自定义（默认: scraped）
+- 📝 `--format markdown` — 新增 markdown 为可选输出格式
+- 📝 SQLite 自动添加 `id` 自增主键和 `scraped_at` 时间戳
+
+### Technical
+- 新增 `Scraper.to_markdown()` — 数据转 Markdown 表格
+- 新增 `Scraper.to_sqlite()` — 数据写入 SQLite，自动建表
+- Markdown 单元格自动转义 `|` 符号、截断超长内容
+- SQLite 支持增量追加（表不存在时自动创建）
+
+### Examples
+```bash
+# Markdown 表格输出
+wscraper https://example.com --select ".name,.price" --markdown
+# Markdown 到文件
+wscraper https://example.com --select ".title,.desc" -M -o report.md
+# SQLite 导出
+wscraper https://example.com --select ".product" -S products.db
+# Markdown + SQLite 同时输出
+wscraper https://example.com --select ".item" -M -o data.md -S data.db
+```
+
+### Notes
+- v0.4 路线图第一项，数据导出能力增强
+- Markdown 输出可直接嵌入飞书文档、GitHub README 等
+
 ## [1.3.0] - 2026-05-28
 
 ### Added

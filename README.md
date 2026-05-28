@@ -131,6 +131,33 @@ wscraper https://example.com --depth 2 --async --max-pages 100
 
 > 💡 `--async` 模式下，多个 URL 会并发抓取，大幅提升效率。翻页 10 页通常可从 ~30s 降至 ~3s。
 
+### Markdown 表格输出
+
+```bash
+# Markdown 表格输出
+wscraper https://example.com --select ".name,.price" --markdown
+
+# 输出到文件
+wscraper https://example.com --select ".title,.desc" -M -o report.md
+```
+
+> 💡 Markdown 输出可直接嵌入飞书文档、GitHub README、Notion 等。
+
+### SQLite 数据库导出
+
+```bash
+# 导出到 SQLite
+wscraper https://example.com --select ".product" -S products.db
+
+# 自定义表名
+wscraper https://example.com --select ".item" -S data.db --table-name items
+
+# Markdown + SQLite 同时输出
+wscraper https://example.com --select ".item" -M -o data.md -S data.db
+```
+
+> 💡 SQLite 自动创建表并添加 `id` 自增主键和 `scraped_at` 时间戳。支持增量追加。
+
 ---
 
 ## 🔧 配置

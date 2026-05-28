@@ -5,6 +5,7 @@ Core scraper engine with anti-detection, proxy support, retry logic, and async c
 import time
 import random
 import re
+import sqlite3
 import asyncio
 import requests
 import httpx
@@ -433,3 +434,104 @@ class Scraper:
 
         print(f"📋 Async crawled {len(results)} pages (depth 0-{max_depth})")
         return results
+
+    # ------------------------------------------------------------------ #
+    #  Data export methods (v1.4.0)                                        #
+    # ------------------------------------------------------------------ #
+
+    def to_markdown(self, data, title=None):
+        """Convert list of dicts to Markdown table string.
+
+        Args:
+            data: List of result dicts
+            title: Optional table title
+
+        Returns:
+            Markdown table string
+        """
+        if not data:
+            return "*(no data)*"
+
+        if not isinstance(data[0], dict):
+            return "\n".join(str(item) for item in data)
+
+        # Collect all keys preserving insertion order
+        keys = list(data[0].keys())
+        for item in data[1:]:
+            for k in item.keys():
+                if k not in keys:
+                    keys.append(k)
+
+        lines = []
+        if title:
+            lines.append(f"### {title}")
+            lines.append("")
+
+        # Header
+        lines.append("| " + " | ".join(keys) + " |")
+        # Separator
+        lines.append("| " + " | ".join("---" for _ in keys) + " |")
+        # Rows
+        for row in data:
+            cells = []
+            for k in keys:
+                val = str(row.get(k, "")).replace("|", "\\|").replace("\n", " ")
+                cells.append(val[:200])  # Truncate very long cells
+            lines.append("| " + " | ".join(cells) + " |")
+
+        return "\n".join(lines)
+
+    def to_sqlite(self, data, db_path, table_name="scraped"):
+        """Export list of dicts to SQLite database.
+
+        Args:
+            data: List of result dicts
+            db_path: Path to SQLite database file
+            table_name: Table name (default: 'scraped')
+
+        Returns:
+            Number of rows inserted
+        """
+        if not data or not isinstance(data[0], dict):
+            print("⚠️  No valid dict data to export")
+            return 0
+
+        keys = list(data[0].keys())
+        for item in data[1:]:
+            for k in item.keys():
+                if k not in keys:
+                    keys.append(k)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Create table if not exists
+        col_defs = ", ".join(
+            f'"{k}" TEXT' for k in keys
+        )
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS "{table_name}" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                {col_defs}
+            )
+        """)
+
+        # Insert rows
+        placeholders = ", ".join([f'"{k}"' for k in keys])
+        question_marks = ", ".join(["?" for _ in keys])
+        cursor.execute(f"""
+            INSERT INTO "{table_name}" ({placeholders})
+            VALUES ({question_marks})
+        """, [str(row.get(k, "")) for k in keys])
+
+        # Bulk insert for remaining rows
+        for row in data[1:]:
+            cursor.execute(f"""
+                INSERT INTO "{table_name}" ({placeholders})
+                VALUES ({question_marks})
+            """, [str(row.get(k, "")) for k in keys])
+
+        conn.commit()
+        conn.close()
+        return len(data)

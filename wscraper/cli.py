@@ -33,8 +33,8 @@ def parse_interval(s):
         return int(s)
 
 
-def export_data(data, fmt, output):
-    """Export data to CSV, JSON, or print to stdout."""
+def export_data(data, fmt, output, scraper=None, sqlite_path=None, markdown_title=None):
+    """Export data to CSV, JSON, Markdown table, or SQLite."""
     if fmt == "json":
         content = json.dumps(data, ensure_ascii=False, indent=2)
     elif fmt == "csv":
@@ -49,14 +49,50 @@ def export_data(data, fmt, output):
             for row in data:
                 writer.writerow({k: row.get(k, "") for k in keys})
             content = buf.getvalue()
+    elif fmt == "markdown":
+        if scraper and data:
+            content = scraper.to_markdown(data, title=markdown_title)
+        elif data:
+            # Fallback: simple manual table
+            content = _manual_markdown(data)
+        else:
+            content = "*(no data)*"
     else:
         content = json.dumps(data, ensure_ascii=False, indent=2)
 
-    if output:
+    # SQLite export (can be combined with other formats)
+    if sqlite_path and scraper and data:
+        count = scraper.to_sqlite(data, sqlite_path)
+        print(f"💾 Exported {count} rows to SQLite: {sqlite_path}")
+
+    if output and fmt != "markdown":
         Path(output).write_text(content, encoding="utf-8")
         print(f"✅ Saved to {output}")
-    else:
+    elif output and fmt == "markdown":
+        Path(output).write_text(content, encoding="utf-8")
+        print(f"✅ Saved Markdown to {output}")
+    elif not sqlite_path:  # Only print if not already handled by SQLite-only mode
         print(content)
+
+
+def _manual_markdown(data):
+    """Fallback Markdown table generator when scraper is not available."""
+    if not data:
+        return "*(no data)*"
+    if not isinstance(data[0], dict):
+        return "\n".join(str(item) for item in data)
+    keys = list(data[0].keys())
+    for item in data[1:]:
+        for k in item.keys():
+            if k not in keys:
+                keys.append(k)
+    lines = []
+    lines.append("| " + " | ".join(keys) + " |")
+    lines.append("| " + " | ".join("---" for _ in keys) + " |")
+    for row in data:
+        cells = [str(row.get(k, "")).replace("|", "\\|").replace("\n", " ")[:200] for k in keys]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
 
 
 def main():
@@ -66,7 +102,7 @@ def main():
     )
     parser.add_argument("url", help="目标 URL")
     parser.add_argument("--select", "-s", help="CSS 选择器（逗号分隔）")
-    parser.add_argument("--format", "-f", choices=["json", "csv", "text"], default="json", help="输出格式")
+    parser.add_argument("--format", "-f", choices=["json", "csv", "text", "markdown"], default="json", help="输出格式")
     parser.add_argument("--output", "-o", help="输出文件路径")
     parser.add_argument("--interval", "-i", help="定时抓取间隔（如 5m, 1h）")
     parser.add_argument("--proxy", "-p", action="append", help="代理地址（可多次指定）")
@@ -87,6 +123,9 @@ def main():
     parser.add_argument("--field", help="只提取指定字段，如 text/url/price")
     parser.add_argument("--async", "-A", action="store_true", help="启用异步并发抓取")
     parser.add_argument("--concurrency", "-c", type=int, default=5, help="异步并发数（默认 5）")
+    parser.add_argument("--markdown", "-M", action="store_true", help="输出 Markdown 表格格式")
+    parser.add_argument("--sqlite", "-S", help="导出到 SQLite 数据库（指定数据库文件路径）")
+    parser.add_argument("--table-name", default="scraped", help="SQLite 表名（默认: scraped）")
 
     args = parser.parse_args()
 
@@ -151,8 +190,9 @@ def main():
                 field=args.field,
             )
 
+        fmt = "markdown" if args.markdown else args.format
         print(f"\n📊 Extracted {len(all_data)} items from {len(crawl_results)} pages\n")
-        export_data(all_data, args.format, args.output)
+        export_data(all_data, fmt, args.output, scraper=scraper, sqlite_path=args.sqlite, markdown_title=args.url)
         sys.exit(0)
 
     # Pagination
@@ -205,8 +245,9 @@ def main():
                     field=args.field,
                 )
 
+            fmt = "markdown" if args.markdown else args.format
             print(f"\n📊 Extracted {len(all_data)} items\n")
-            export_data(all_data, args.format, args.output)
+            export_data(all_data, fmt, args.output, scraper=scraper, sqlite_path=args.sqlite, markdown_title=args.url)
 
             if not interval:
                 break
