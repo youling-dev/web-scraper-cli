@@ -4,8 +4,10 @@ Core scraper engine with anti-detection, proxy support, and retry logic.
 
 import time
 import random
+import re
 import requests
-from urllib.parse import urljoin, quote
+from urllib.parse import urljoin, quote, urlparse
+from xml.etree import ElementTree as ET
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
@@ -106,3 +108,92 @@ class Scraper:
                 if cells and len(cells) == len(headers):
                     data.append(dict(zip(headers, cells)))
         return data
+
+    def extract_sitemap(self, base_url, sitemap_url=None):
+        """Fetch and parse sitemap.xml, returning a list of URLs.
+
+        Supports standard sitemap format and sitemap index files.
+        Auto-detects sitemap location if sitemap_url is None.
+        """
+        parsed = urlparse(base_url)
+        if sitemap_url:
+            sitemap_url = urljoin(base_url, sitemap_url)
+        else:
+            sitemap_url = f"{parsed.scheme}://{parsed.netloc}/sitemap.xml"
+
+        print(f"🗺️  Fetching sitemap: {sitemap_url}")
+        xml_text = self.fetch(sitemap_url)
+
+        root = ET.fromstring(xml_text)
+        urls = []
+
+        # Check if it's a sitemap index
+        ns = ''
+        test_tag = root.tag
+        if test_tag.startswith('{'):
+            ns = test_tag.split('}')[0] + '}'
+
+        children = list(root)
+        if children and children[0].tag.replace(ns, '') == 'sitemap':
+            # Sitemap index - recursively extract URLs from each sitemap
+            for child in root:
+                loc_elem = child.find(f'{ns}loc')
+                if loc_elem is not None and loc_elem.text:
+                    urls.extend(self.extract_sitemap(base_url, loc_elem.text))
+        else:
+            # Standard sitemap with <url> entries
+            for url_entry in root:
+                loc_elem = url_entry.find(f'{ns}loc')
+                if loc_elem is not None and loc_elem.text:
+                    urls.append(loc_elem.text.strip())
+
+        print(f"📋 Found {len(urls)} URLs in sitemap")
+        return urls
+
+    def recursive_crawl(self, start_url, max_depth=2, same_domain=True):
+        """Recursively crawl from a start URL up to max_depth.
+
+        Returns list of {url, depth, text} dicts.
+        """
+        parsed_start = urlparse(start_url)
+        start_domain = parsed_start.netloc
+        visited = set()
+        results = []
+
+        def crawl(url, depth):
+            if depth > max_depth:
+                return
+            if url in visited:
+                return
+
+            # Domain restriction
+            if same_domain:
+                curr_domain = urlparse(url).netloc
+                if curr_domain != start_domain:
+                    return
+
+            visited.add(url)
+            print(f"🕸️  [{depth}/{max_depth}] {url}")
+
+            try:
+                html = self.fetch(url)
+                links = self.extract_links(html, url, relative_only=False)
+                results.append({
+                    "url": url,
+                    "depth": depth,
+                    "links_found": len(links),
+                })
+
+                # Crawl sub-links
+                for link in links:
+                    link_url = link["url"]
+                    # Strip fragments and normalize
+                    clean = re.sub(r'#[^/]*$', '', link_url)
+                    if clean not in visited:
+                        crawl(clean, depth + 1)
+            except Exception as e:
+                results.append({"url": url, "depth": depth, "error": str(e)})
+
+        crawl(start_url, 0)
+        print(f"📋 Crawled {len(results)} pages (depth 0-{max_depth})")
+        return results

@@ -76,6 +76,11 @@ def main():
     parser.add_argument("--table", action="store_true", help="提取表格数据")
     parser.add_argument("--table-selector", help="表格 CSS 选择器")
     parser.add_argument("--pages", help="翻页范围（如 1-10，URL 中用 {page} 占位）")
+    parser.add_argument("--sitemap", action="store_true", help="从 sitemap.xml 提取所有 URL 并抓取")
+    parser.add_argument("--sitemap-url", help="指定 sitemap URL（默认自动检测 /sitemap.xml）")
+    parser.add_argument("--depth", type=int, help="递归爬取深度（从入口页发现子页面）")
+    parser.add_argument("--same-domain", action="store_true", default=True, help="仅抓取同域名页面（默认开启）")
+    parser.add_argument("--max-pages", type=int, help="递归爬取时最大抓取页数")
 
     args = parser.parse_args()
 
@@ -86,8 +91,46 @@ def main():
         proxies=args.proxy or [],
     )
 
-    # Handle pagination
+    # Handle URL discovery
     urls = [args.url]
+
+    # Sitemap mode
+    if args.sitemap:
+        urls = scraper.extract_sitemap(args.url, args.sitemap_url)
+        if not urls:
+            print("❌ No URLs found in sitemap", file=sys.stderr)
+            sys.exit(1)
+        if args.max_pages:
+            urls = urls[:args.max_pages]
+            print(f"📋 Limited to {args.max_pages} pages")
+
+    # Recursive crawl mode
+    elif args.depth is not None:
+        crawl_results = scraper.recursive_crawl(
+            args.url,
+            max_depth=args.depth,
+            same_domain=args.same_domain,
+        )
+        if args.max_pages:
+            crawl_results = crawl_results[:args.max_pages]
+
+        all_data = []
+        for result in crawl_results:
+            if "error" in result:
+                continue
+            if args.select:
+                try:
+                    html = scraper.fetch(result["url"])
+                    data = scraper.parse(html, result["url"], args.select)
+                    all_data.extend(data)
+                except Exception as e:
+                    print(f"⚠️  Failed to parse {result['url']}: {e}")
+
+        print(f"\n📊 Extracted {len(all_data)} items from {len(crawl_results)} pages\n")
+        export_data(all_data, args.format, args.output)
+        sys.exit(0)
+
+    # Pagination
     if args.pages:
         start, end = map(int, args.pages.split("-"))
         urls = [args.url.replace("{page}", str(p)) for p in range(start, end + 1)]

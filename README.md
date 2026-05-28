@@ -15,7 +15,7 @@
 - 🛡️ **反检测** — 随机 UA、延迟、代理支持
 - 📊 **数据导出** — CSV / JSON / SQLite
 - 📝 **结构化提取** — CSS 选择器 / XPath
-- 🌐 **多页面** — 支持翻页、分页、sitemap
+- 🌐 **多页面** — 支持翻页、分页、sitemap、递归爬取
 
 ---
 
@@ -72,6 +72,29 @@ wscraper "https://example.com/search?p={page}" \
   --select ".item .title, .item .price" \
   --format csv \
   --output results.csv
+```
+
+### Sitemap 抓取
+
+```bash
+# 从 sitemap.xml 自动发现并抓取所有页面
+wscraper https://example.com --sitemap
+
+# 指定 sitemap URL
+wscraper https://example.com --sitemap --sitemap-url https://example.com/custom-sitemap.xml
+
+# 限制抓取页数
+wscraper https://example.com --sitemap --max-pages 20 --select "h1"
+```
+
+### 递归爬取
+
+```bash
+# 从入口页开始递归爬取，深度为 2
+wscraper https://example.com --depth 2
+
+# 递归爬取并提取标题
+wscraper https://example.com --depth 2 --select "h1.title" --max-pages 50
 ```
 
 ---
