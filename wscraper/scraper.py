@@ -150,6 +150,77 @@ class Scraper:
         print(f"📋 Found {len(urls)} URLs in sitemap")
         return urls
 
+    def filter_results(self, data, filter_expr=None, unique=False, field=None):
+        """Filter and transform scraped results.
+
+        Args:
+            data: List of result dicts
+            filter_expr: Filter expression in 'field:op:value' format.
+                Operators: contains, notcontains, eq, gt, lt, startswith, endswith
+                Examples: 'text:contains:价格', 'text:notcontains:广告'
+            unique: Deduplicate by text content
+            field: Extract only this field from each result
+
+        Returns:
+            Filtered/transformed list
+        """
+        if not data:
+            return []
+
+        result = list(data)
+
+        # Apply filter
+        if filter_expr:
+            parts = filter_expr.split(":", 2)
+            if len(parts) == 3:
+                f_field, op, value = parts
+                filtered = []
+                for item in result:
+                    if not isinstance(item, dict):
+                        continue
+                    item_val = str(item.get(f_field, ""))
+                    match = False
+                    if op == "contains":
+                        match = value in item_val
+                    elif op == "notcontains":
+                        match = value not in item_val
+                    elif op == "eq":
+                        match = item_val == value
+                    elif op == "startswith":
+                        match = item_val.startswith(value)
+                    elif op == "endswith":
+                        match = item_val.endswith(value)
+                    elif op == "gt":
+                        try:
+                            match = float(item_val) > float(value)
+                        except ValueError:
+                            pass
+                    elif op == "lt":
+                        try:
+                            match = float(item_val) < float(value)
+                        except ValueError:
+                            pass
+                    if match:
+                        filtered.append(item)
+                result = filtered
+
+        # Deduplicate
+        if unique:
+            seen = set()
+            unique_result = []
+            for item in result:
+                key = item.get("text", str(item)) if isinstance(item, dict) else str(item)
+                if key not in seen:
+                    seen.add(key)
+                    unique_result.append(item)
+            result = unique_result
+
+        # Extract specific field
+        if field:
+            result = [item.get(field, "") if isinstance(item, dict) else item for item in result]
+
+        return result
+
     def recursive_crawl(self, start_url, max_depth=2, same_domain=True):
         """Recursively crawl from a start URL up to max_depth.
 

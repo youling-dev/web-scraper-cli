@@ -52,6 +52,22 @@ wscraper https://news.example.com --select "h1.title"
 wscraper https://data.example.com --select "table.data td" --format json
 ```
 
+### 结果过滤与去重
+
+```bash
+# 去重（按 text 字段）
+wscraper https://example.com --select ".title" --unique
+
+# 过滤包含特定关键词的结果
+wscraper https://example.com --select ".price,.name" --filter "text:contains:促销"
+
+# 只提取指定字段
+wscraper https://example.com --select ".product" --field "text"
+
+# 组合使用
+wscraper https://example.com --select ".item" --filter "text:notcontains:广告" --unique --field "text"
+```
+
 ### 定时监控
 
 ```bash

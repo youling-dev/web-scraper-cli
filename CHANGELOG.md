@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-05-28
+
+### Added
+- ✨ `--unique` — 去重（按 text 字段）
+- ✨ `--filter` — 过滤表达式 `field:op:value`，支持 contains, notcontains, eq, startswith, endswith, gt, lt
+- ✨ `--field` — 只提取指定字段（如 text/url/price）
+- 📝 过滤与去重支持组合使用，适用于递归爬取和常规抓取
+
+### Examples
+```bash
+# 去重
+wscraper https://example.com --select ".title" --unique
+# 过滤包含关键词
+wscraper https://example.com --select ".price,.name" --filter "text:contains:促销"
+# 只提取 text 字段
+wscraper https://example.com --select ".product" --field "text"
+```
+
 ## [1.1.0] - 2026-05-28
 
 ### Added

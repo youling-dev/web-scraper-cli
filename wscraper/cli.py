@@ -81,6 +81,9 @@ def main():
     parser.add_argument("--depth", type=int, help="递归爬取深度（从入口页发现子页面）")
     parser.add_argument("--same-domain", action="store_true", default=True, help="仅抓取同域名页面（默认开启）")
     parser.add_argument("--max-pages", type=int, help="递归爬取时最大抓取页数")
+    parser.add_argument("--unique", action="store_true", help="去重（按 text 字段）")
+    parser.add_argument("--filter", help="过滤表达式 field:op:value，如 text:contains:价格")
+    parser.add_argument("--field", help="只提取指定字段，如 text/url/price")
 
     args = parser.parse_args()
 
@@ -126,6 +129,15 @@ def main():
                 except Exception as e:
                     print(f"⚠️  Failed to parse {result['url']}: {e}")
 
+        # Apply filters
+        if args.filter or args.unique or args.field:
+            all_data = scraper.filter_results(
+                all_data,
+                filter_expr=args.filter,
+                unique=args.unique,
+                field=args.field,
+            )
+
         print(f"\n📊 Extracted {len(all_data)} items from {len(crawl_results)} pages\n")
         export_data(all_data, args.format, args.output)
         sys.exit(0)
@@ -152,6 +164,15 @@ def main():
                     data = scraper.parse(html, url, args.select)
 
                 all_data.extend(data)
+
+            # Apply filters
+            if args.filter or args.unique or args.field:
+                all_data = scraper.filter_results(
+                    all_data,
+                    filter_expr=args.filter,
+                    unique=args.unique,
+                    field=args.field,
+                )
 
             print(f"\n📊 Extracted {len(all_data)} items\n")
             export_data(all_data, args.format, args.output)
