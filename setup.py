@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="web-scraper-cli",
-    version="1.5.0",
-    description="轻量网页爬虫 CLI 工具",
+    version="1.7.0",
+    description="轻量网页爬虫 CLI 工具。支持代理、定时、反检测、变更监控、数据导出。",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="有灵",
@@ -13,9 +13,11 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "requests>=2.28",
+        "httpx>=0.25",
         "beautifulsoup4>=4.12",
         "fake-useragent>=1.4",
-        "lxml",
+        "lxml>=4.9",
+        "pyyaml>=6.0",
     ],
     entry_points={
         "console_scripts": [
