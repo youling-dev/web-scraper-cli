@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.3.0] - 2026-05-28
+
+### Added
+- ⚡ `--async` / `-A` — 异步并发抓取，多 URL 场景性能大幅提升
+- ⚡ `--concurrency` / `-c` — 自定义并发数（默认 5）
+- 📝 异步模式支持 sitemap、翻页、递归爬取
+- 📝 新增 `httpx` 依赖（异步 HTTP 客户端）
+
+### Technical
+- 新增 `Scraper.async_fetch_one()` — 单 URL 异步抓取
+- 新增 `Scraper.async_fetch_many()` — 批量并发抓取
+- 新增 `Scraper.async_batch_scrape()` — 并发抓取 + CSS 选择器提取
+- 新增 `Scraper.async_recursive_crawl()` — 异步递归爬取
+
+### Examples
+```bash
+# Sitemap + 异步并发
+wscraper https://example.com --sitemap --async
+# 翻页 + 异步，并发 10
+wscraper "https://example.com/p={page}" --pages 1-20 --async --concurrency 10
+# 异步递归爬取
+wscraper https://example.com --depth 2 --async
+```
+
+### Notes
+- v0.3 路线图最后一项，至此 v0.3 全部完成
+- 翻页 10 页场景从 ~30s 降至 ~3s（取决于并发数和网站响应速度）
+
 ## [1.2.0] - 2026-05-28
 
 ### Added

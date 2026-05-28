@@ -13,6 +13,7 @@ import argparse
 import json
 import csv
 import time
+import asyncio
 import sys
 from pathlib import Path
 
@@ -84,6 +85,8 @@ def main():
     parser.add_argument("--unique", action="store_true", help="去重（按 text 字段）")
     parser.add_argument("--filter", help="过滤表达式 field:op:value，如 text:contains:价格")
     parser.add_argument("--field", help="只提取指定字段，如 text/url/price")
+    parser.add_argument("--async", "-A", action="store_true", help="启用异步并发抓取")
+    parser.add_argument("--concurrency", "-c", type=int, default=5, help="异步并发数（默认 5）")
 
     args = parser.parse_args()
 
@@ -109,11 +112,21 @@ def main():
 
     # Recursive crawl mode
     elif args.depth is not None:
-        crawl_results = scraper.recursive_crawl(
-            args.url,
-            max_depth=args.depth,
-            same_domain=args.same_domain,
-        )
+        if args.async_:
+            crawl_results = asyncio.run(
+                scraper.async_recursive_crawl(
+                    args.url,
+                    max_depth=args.depth,
+                    same_domain=args.same_domain,
+                    concurrency=args.concurrency,
+                )
+            )
+        else:
+            crawl_results = scraper.recursive_crawl(
+                args.url,
+                max_depth=args.depth,
+                same_domain=args.same_domain,
+            )
         if args.max_pages:
             crawl_results = crawl_results[:args.max_pages]
 
@@ -152,18 +165,36 @@ def main():
     try:
         while True:
             all_data = []
-            for url in urls:
-                print(f"🕷️  Fetching: {url}")
-                html = scraper.fetch(url)
 
-                if args.links:
-                    data = scraper.extract_links(html, url)
-                elif args.table:
-                    data = scraper.extract_table(html, args.table_selector)
-                else:
-                    data = scraper.parse(html, url, args.select)
+            if args.async_ and len(urls) > 1:
+                # Async concurrent fetching
+                print(f"⚡ Async mode: fetching {len(urls)} URLs (concurrency={args.concurrency})")
+                url_selectors = [(u, args.select) for u in urls]
+                batch_results = asyncio.run(
+                    scraper.async_batch_scrape(
+                        url_selectors,
+                        concurrency=args.concurrency,
+                    )
+                )
+                for br in batch_results:
+                    if "error" in br:
+                        print(f"⚠️  Failed: {br['url']}: {br['error']}")
+                        continue
+                    all_data.extend(br.get("data", []))
+            else:
+                # Sync sequential fetching
+                for url in urls:
+                    print(f"🕷️  Fetching: {url}")
+                    html = scraper.fetch(url)
 
-                all_data.extend(data)
+                    if args.links:
+                        data = scraper.extract_links(html, url)
+                    elif args.table:
+                        data = scraper.extract_table(html, args.table_selector)
+                    else:
+                        data = scraper.parse(html, url, args.select)
+
+                    all_data.extend(data)
 
             # Apply filters
             if args.filter or args.unique or args.field:

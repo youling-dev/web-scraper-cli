@@ -1,11 +1,13 @@
 """
-Core scraper engine with anti-detection, proxy support, and retry logic.
+Core scraper engine with anti-detection, proxy support, retry logic, and async crawling.
 """
 
 import time
 import random
 import re
+import asyncio
 import requests
+import httpx
 from urllib.parse import urljoin, quote, urlparse
 from xml.etree import ElementTree as ET
 from bs4 import BeautifulSoup
@@ -267,4 +269,167 @@ class Scraper:
 
         crawl(start_url, 0)
         print(f"📋 Crawled {len(results)} pages (depth 0-{max_depth})")
+        return results
+
+    # ------------------------------------------------------------------ #
+    #  Async crawling methods (v1.3.0)                                     #
+    # ------------------------------------------------------------------ #
+
+    def _get_async_headers(self):
+        """Return headers for async requests."""
+        return {
+            "User-Agent": self.ua.random,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+
+    async def async_fetch_one(self, url, client):
+        """Fetch a single URL asynchronously with retry."""
+        headers = self._get_async_headers()
+
+        for attempt in range(self.retries):
+            try:
+                proxy = random.choice(self.proxies) if self.proxies else None
+
+                resp = await client.get(
+                    url,
+                    headers=headers,
+                    proxies=proxy,
+                    timeout=self.timeout,
+                    follow_redirects=True,
+                )
+                resp.raise_for_status()
+                # httpx returns bytes; decode
+                content = resp.content
+                # Try to detect encoding from content-type or fallback
+                try:
+                    encoding = resp.headers.get("content-type", "").split("charset=")[-1] if "charset" in resp.headers.get("content-type", "") else None
+                except Exception:
+                    encoding = None
+                text = content.decode(encoding or "utf-8", errors="replace")
+                await asyncio.sleep(self.delay * random.uniform(0.3, 1.0))
+                return text
+            except (httpx.HTTPError, httpx.RequestError, Exception) as e:
+                if attempt == self.retries - 1:
+                    raise RuntimeError(f"Failed to fetch {url} after {self.retries} attempts: {e}")
+                await asyncio.sleep((self.delay + 1) * (attempt + 1))
+
+    async def async_fetch_many(self, urls, concurrency=5):
+        """Fetch multiple URLs concurrently.
+
+        Args:
+            urls: List of URL strings or list of (url, selector) tuples.
+            concurrency: Max concurrent requests (default 5).
+
+        Returns:
+            List of dicts: {"url": ..., "html": ...} or {"url": ..., "error": ...}
+        """
+        sem = asyncio.Semaphore(concurrency)
+        results = []
+
+        async def fetch_with_limit(item):
+            url = item[0] if isinstance(item, tuple) else item
+            async with sem:
+                try:
+                    html = await self.async_fetch_one(url, client=self._async_client)
+                    results.append({"url": url, "html": html})
+                except Exception as e:
+                    results.append({"url": url, "error": str(e)})
+
+        self._async_client = httpx.AsyncClient(
+            http2=False,
+            verify=True,
+        )
+        try:
+            await asyncio.gather(*(fetch_with_limit(u) for u in urls))
+        finally:
+            await self._async_client.aclose()
+
+        return results
+
+    async def async_batch_scrape(self, url_selectors, concurrency=5):
+        """Asynchronously scrape multiple URLs with CSS selectors.
+
+        Args:
+            url_selectors: List of (url, selector) tuples.
+            concurrency: Max concurrent requests.
+
+        Returns:
+            List of result dicts with url, selector, and extracted data.
+        """
+        all_html = await self.async_fetch_many(
+            [(u, s) for u, s in url_selectors],
+            concurrency=concurrency,
+        )
+
+        final = []
+        for item in all_html:
+            if "error" in item:
+                final.append({"url": item["url"], "error": item["error"]})
+                continue
+            url, selector = url_selectors[[u[0] for u in url_selectors].index(item["url"])]
+            parsed = self.parse(item["html"], base_url=url, select=selector)
+            final.append({"url": url, "data": parsed})
+
+        return final
+
+    async def async_recursive_crawl(self, start_url, max_depth=2, same_domain=True, concurrency=3):
+        """Asynchronously recursive crawl from a start URL.
+
+        Returns list of {url, depth, links_found} dicts.
+        """
+        parsed_start = urlparse(start_url)
+        start_domain = parsed_start.netloc
+        visited = set()
+        results = []
+        sem = asyncio.Semaphore(concurrency)
+
+        self._async_client = httpx.AsyncClient(http2=False, verify=True)
+
+        async def crawl(url, depth):
+            if depth > max_depth:
+                return
+            if url in visited:
+                return
+            if same_domain:
+                if urlparse(url).netloc != start_domain:
+                    return
+
+            visited.add(url)
+            print(f"🕸️  [{depth}/{max_depth}] {url}")
+
+            async with sem:
+                try:
+                    html = await self.async_fetch_one(url, client=self._async_client)
+                    links = self.extract_links(html, url, relative_only=False)
+                    results.append({
+                        "url": url,
+                        "depth": depth,
+                        "links_found": len(links),
+                    })
+                except Exception as e:
+                    results.append({"url": url, "depth": depth, "error": str(e)})
+                    links = []
+
+            # Crawl sub-links
+            if depth < max_depth:
+                tasks = []
+                for link in links:
+                    link_url = link["url"]
+                    clean = re.sub(r'#[^/]*$', '', link_url)
+                    if clean not in visited:
+                        visited.add(clean)
+                        tasks.append(crawl(clean, depth + 1))
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+        try:
+            await crawl(start_url, 0)
+        finally:
+            await self._async_client.aclose()
+
+        print(f"📋 Async crawled {len(results)} pages (depth 0-{max_depth})")
         return results

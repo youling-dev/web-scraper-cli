@@ -113,6 +113,24 @@ wscraper https://example.com --depth 2
 wscraper https://example.com --depth 2 --select "h1.title" --max-pages 50
 ```
 
+### 异步并发抓取
+
+```bash
+# 多 URL 并发抓取（默认并发数 5）
+wscraper https://example.com --sitemap --async
+
+# 自定义并发数
+wscraper https://example.com --sitemap --async --concurrency 10
+
+# 翻页抓取 + 异步
+wscraper "https://example.com/search?p={page}" --pages 1-20 --async --select ".item"
+
+# 异步递归爬取
+wscraper https://example.com --depth 2 --async --max-pages 100
+```
+
+> 💡 `--async` 模式下，多个 URL 会并发抓取，大幅提升效率。翻页 10 页通常可从 ~30s 降至 ~3s。
+
 ---
 
 ## 🔧 配置
