@@ -218,6 +218,80 @@ wscraper watch watch --interval 1800 \
 > 💡 `--notify` 参数可多次指定，每个监控项检测到变更时将按配置推送通知。
 > 持续监控模式（`watch watch`）同样支持通知功能。
 
+### 📋 配置化任务
+
+使用 YAML 配置文件驱动爬虫任务，告别冗长的命令行参数：
+
+```bash
+# 运行配置文件中的所有任务
+wscraper run tasks.yml
+
+# 只运行指定名称的任务（模糊匹配）
+wscraper run tasks.yml --task "竞品价格"
+
+# 持续监控模式（循环运行所有任务）
+wscraper run tasks.yml --watch --interval 3600
+```
+
+**配置文件示例 (`tasks.yml`)：**
+
+```yaml
+# 全局配置（可选）
+global:
+  timeout: 30
+  delay: 2.0
+  retries: 3
+
+tasks:
+  - name: "竞品价格监控"
+    url: "https://shop.example.com/products"
+    select: ".product-name,.price"
+    format: csv
+    output: "data/prices.csv"
+    filter: "text:contains:元"
+    unique: true
+
+  - name: "新闻标题抓取"
+    urls:
+      - "https://news.example.com/tech"
+      - "https://news.example.com/business"
+    select: "h2.title"
+    format: json
+    output: "data/news.json"
+    async: true
+    concurrency: 5
+
+  - name: "全站 sitemap 抓取"
+    url: "https://example.com"
+    sitemap: true
+    select: "h1"
+    max_pages: 50
+    format: markdown
+    output: "data/all_titles.md"
+```
+
+**支持的配置项（与 CLI 参数一一对应）：**
+
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| `name` | 任务名称 | `"竞品监控"` |
+| `url` / `urls` | 目标 URL（单个或列表） | `"https://..."` / `["url1", "url2"]` |
+| `select` | CSS 选择器 | `".title,.price"` |
+| `format` | 输出格式 | `json` / `csv` / `markdown` |
+| `output` | 输出文件路径 | `"data/output.json"` |
+| `async` | 异步并发 | `true` |
+| `concurrency` | 并发数 | `10` |
+| `sitemap` | 启用 sitemap | `true` |
+| `depth` | 递归爬取深度 | `2` |
+| `pages` | 翻页范围 | `"1-10"` |
+| `filter` | 过滤表达式 | `"text:contains:促销"` |
+| `unique` | 去重 | `true` |
+| `field` | 指定字段 | `"text"` |
+| `sqlite` | SQLite 导出路径 | `"data/db.sqlite"` |
+
+> 💡 配置化任务适合定时调度（cron）、CI/CD 集成或批量管理多个爬虫任务。
+> 完整示例见 `examples/config-tasks.yml`。
+
 ---
 
 ## 🔧 配置

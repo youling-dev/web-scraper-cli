@@ -395,11 +395,28 @@ def main():
     ww.add_argument("--interval", "-i", type=int, help="检查间隔（秒，默认 3600）")
     ww.add_argument("--notify", "-N", action="append", help="变更通知配置（JSON，可多次指定）")
 
+    # Run subcommand (config-driven tasks)
+    run_parser = subparsers.add_parser("run", help="运行配置文件中的任务")
+    run_parser.add_argument("config", help="YAML 配置文件路径")
+    run_parser.add_argument("--task", "-t", help="只运行指定名称的任务（支持模糊匹配）")
+    run_parser.add_argument("--watch", "-w", action="store_true", help="持续监控模式（循环运行）")
+    run_parser.add_argument("--interval", "-i", type=int, help="持续监控时的间隔（秒，默认 3600）")
+
     args = parser.parse_args()
 
     # Watch commands
     if args.command == "watch":
         run_watch(args)
+        return
+
+    # Run commands (config-driven)
+    if args.command == "run":
+        _run_config(
+            config_path=args.config,
+            task_filter=args.task,
+            watch=args.watch,
+            interval=args.interval,
+        )
         return
 
     # Scrape: if subcommand was given or URL provided, run scrape

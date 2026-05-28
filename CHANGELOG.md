@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.7.0] - 2026-05-28
+
+### Added
+- 📋 **配置化任务** — YAML 配置文件驱动爬虫任务
+- 📋 `wscraper run tasks.yml` — 运行配置文件中的全部任务
+- 📋 `--task "名称"` — 只运行指定任务（支持模糊匹配）
+- 📋 `--watch` / `-w` — 持续监控模式，循环运行所有任务
+- 📋 `--interval` — 持续监控间隔（秒）
+- 📋 全局配置 `global:` — 统一设置 timeout/delay/retries/proxy
+- 📋 简单格式支持 — 无需 tasks 列表，单任务直接配置
+- 📋 所有 scrape 参数均可在配置中使用（sitemap/depth/pages/async/filter 等）
+
+### Usage
+```bash
+# 运行全部任务
+wscraper run tasks.yml
+
+# 只运行指定任务
+wscraper run tasks.yml --task "竞品价格"
+
+# 持续监控模式
+wscraper run tasks.yml --watch --interval 3600
+```
+
+### Technical
+- 新增 `config.py` 模块 — YAML 配置加载与任务执行引擎
+- 新增 `pyyaml>=6.0` 依赖
+- 新增 `examples/config-tasks.yml` 示例配置
+
+---
+
 ## [1.6.0] - 2026-05-28
 
 ### Added

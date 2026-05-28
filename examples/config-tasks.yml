@@ -1,0 +1,71 @@
+# wscraper 配置文件示例
+# 用法: wscraper run config-tasks.yml
+
+# 全局配置（可选）
+global:
+  timeout: 30
+  delay: 2.0
+  retries: 3
+  # proxy: "http://proxy:8080"
+
+tasks:
+  # 示例 1: 简单抓取
+  - name: "示例 - 抓取标题"
+    url: "https://example.com"
+    select: "h1,.title"
+    format: json
+    output: "output/titles.json"
+
+  # 示例 2: 多 URL 批量抓取
+  - name: "示例 - 批量抓取"
+    urls:
+      - "https://example.com/page1"
+      - "https://example.com/page2"
+    select: ".content"
+    format: csv
+    output: "output/content.csv"
+    async: true
+    concurrency: 5
+
+  # 示例 3: Sitemap 抓取
+  - name: "示例 - Sitemap"
+    url: "https://example.com"
+    sitemap: true
+    select: "h2"
+    max_pages: 20
+    format: json
+    output: "output/sitemap_results.json"
+
+  # 示例 4: 递归爬取 + 过滤
+  - name: "示例 - 递归爬取"
+    url: "https://example.com/blog"
+    depth: 2
+    same_domain: true
+    max_pages: 10
+    select: "article h2"
+    filter: "text:contains:教程"
+    unique: true
+    format: markdown
+    output: "output/blog_tutorials.md"
+
+  # 示例 5: 翻页抓取
+  - name: "示例 - 翻页"
+    url: "https://example.com/list?page={page}"
+    pages: "1-5"
+    select: ".item-title,.item-price"
+    format: csv
+    output: "output/items.csv"
+
+  # 示例 6: 提取链接
+  - name: "示例 - 链接提取"
+    url: "https://example.com"
+    links: true
+    format: json
+    output: "output/links.json"
+
+  # 示例 7: 表格提取
+  - name: "示例 - 表格"
+    url: "https://example.com/data"
+    table: true
+    format: csv
+    output: "output/table_data.csv"
