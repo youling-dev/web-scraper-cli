@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .scraper import Scraper
 from .watcher import Watcher
+from .cache import HTTPCache
 
 
 def parse_interval(s):
@@ -124,6 +125,9 @@ def build_scrape_parser(sub):
     sub.add_argument("--markdown", "-M", action="store_true", help="输出 Markdown 表格格式")
     sub.add_argument("--sqlite", "-S", help="导出到 SQLite 数据库（指定数据库文件路径）")
     sub.add_argument("--table-name", default="scraped", help="SQLite 表名（默认: scraped）")
+    sub.add_argument("--cache", dest="cache", action="store_true", default=None, help="启用 HTTP 缓存")
+    sub.add_argument("--no-cache", dest="cache", action="store_false", help="禁用 HTTP 缓存")
+    sub.add_argument("--cache-ttl", type=int, default=300, help="缓存默认 TTL（秒，默认 300）")
 
 
 def _parse_notifies(notify_strs):
@@ -150,6 +154,8 @@ def run_scrape(args):
         delay=args.delay,
         retries=args.retries,
         proxies=args.proxy or [],
+        cache=args.cache,
+        cache_ttl=args.cache_ttl,
     )
 
     urls = [args.url]

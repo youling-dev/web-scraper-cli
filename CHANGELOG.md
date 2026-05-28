@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.8.0] - 2026-05-29
+
+### Added
+- 💾 **HTTP 缓存层** — 自动缓存 GET 响应，减少重复请求
+- 💾 `--cache` / `--no-cache` — 启用/禁用 HTTP 缓存
+- 💾 `--cache-ttl` — 缓存默认 TTL（秒，默认 300）
+- 💾 尊重 `Cache-Control` / `max-age` / `no-store` / `ETag` 头
+- 💾 环境变量 `WSRAPPER_CACHE=true` 可全局启用缓存
+- 💾 本地文件缓存，存于 `~/.cache/wscraper/`
+- 💾 大幅降低对目标服务器的请求频率，提升重复抓取速度
+
+### Usage
+```bash
+# 启用缓存（默认 TTL 5 分钟）
+wscraper https://example.com --select ".title" --cache
+
+# 自定义 TTL（30 分钟）
+wscraper https://example.com --select ".title" --cache --cache-ttl 1800
+
+# 显式禁用缓存
+wscraper https://example.com --select ".title" --no-cache
+
+# 环境变量全局启用
+export WSCRAPER_CACHE=true
+wscraper https://example.com --select ".title"
+```
+
+### Technical
+- 新增 `cache.py` 模块 — `HTTPCache` 类
+- `Scraper.__init__()` 新增 `cache` / `cache_ttl` 参数
+- `Scraper.fetch()` 集成缓存命中/未命中逻辑
+- 缓存键为 URL 的 SHA256 哈希
+- 元数据（TTL、ETag、Last-Modified）与内容分离存储
+
+---
+
 ## [1.7.0] - 2026-05-28
 
 ### Added

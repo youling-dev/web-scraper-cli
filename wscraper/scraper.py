@@ -2,6 +2,7 @@
 Core scraper engine with anti-detection, proxy support, retry logic, and async crawling.
 """
 
+import os
 import time
 import random
 import re
@@ -13,6 +14,7 @@ from urllib.parse import urljoin, quote, urlparse
 from xml.etree import ElementTree as ET
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
+from .cache import HTTPCache
 
 
 class Scraper:
@@ -22,13 +24,23 @@ class Scraper:
     DEFAULT_DELAY = 2
     DEFAULT_RETRIES = 3
 
-    def __init__(self, timeout=None, delay=None, retries=None, proxies=None, headers=None):
+    def __init__(self, timeout=None, delay=None, retries=None, proxies=None, headers=None, cache=None, cache_ttl=300):
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.delay = delay or self.DEFAULT_DELAY
         self.retries = retries or self.DEFAULT_RETRIES
         self.proxies = proxies or []
         self.ua = UserAgent()
         self.session = requests.Session()
+
+        # HTTP cache (v1.8.0)
+        if cache is True or (cache is None and os.environ.get("WSRAPPER_CACHE", "").lower() == "true"):
+            self.cache = HTTPCache(enabled=True, default_ttl=cache_ttl)
+        elif isinstance(cache, HTTPCache):
+            self.cache = cache
+        else:
+            self.cache = HTTPCache(enabled=False, default_ttl=cache_ttl)
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     def _get_headers(self):
         return {
@@ -41,7 +53,15 @@ class Scraper:
         }
 
     def fetch(self, url):
-        """Fetch a URL with retry and anti-detection."""
+        """Fetch a URL with retry, anti-detection, and optional HTTP cache."""
+        # Check cache first
+        cached = self.cache.get(url)
+        if cached is not None:
+            self._cache_hits += 1
+            print(f"  ⚡ Cache hit: {url}")
+            return cached
+        self._cache_misses += 1
+
         headers = self._get_headers()
 
         for attempt in range(self.retries):
@@ -58,8 +78,13 @@ class Scraper:
                 )
                 resp.raise_for_status()
                 resp.encoding = resp.apparent_encoding
+                html = resp.text
+
+                # Store in cache
+                self.cache.put(url, html, dict(resp.headers))
+
                 time.sleep(self.delay * random.uniform(0.5, 1.5))
-                return resp.text
+                return html
             except (requests.RequestException, ConnectionError) as e:
                 if attempt == self.retries - 1:
                     raise RuntimeError(f"Failed to fetch {url} after {self.retries} attempts: {e}")
