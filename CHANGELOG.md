@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.6.0] - 2026-05-28
+
+### Added
+- 📬 **变更通知** — 检测到网页变更后自动推送通知
+- 📬 Feishu 飞书通知 — `--notify '{"type": "feishu", "webhook": "..."}'`
+- 📬 DingTalk 钉钉通知 — `--notify '{"type": "dingtalk", "webhook": "..."}'`
+- 📬 Slack 通知 — `--notify '{"type": "slack", "webhook": "..."}'`
+- 📬 通用 Webhook — `--notify '{"type": "webhook", "url": "..."}'`
+- 📬 邮件通知 — `--notify '{"type": "email", ...}'`
+- 📬 多渠道同时通知 — `--notify` 可多次指定
+- 📬 持续监控模式支持通知 — `watch watch --notify ...`
+
+### Technical
+- 新增 `Notifier` 类 — 统一的通知发送接口
+- `check_one()` / `check_all()` 新增 `on_change` 参数
+- 通知结果实时打印（✅ 发送成功 / ❌ 失败原因）
+- JSON 解析容错，支持简单 `type=url` 快捷格式
+
+### Examples
+```bash
+# 飞书通知
+wscraper watch check --notify '{"type": "feishu", "webhook": "https://open.feishu.cn/..."}'
+
+# 多渠道
+wscraper watch watch --notify '{"type": "feishu", "webhook": "..."}' --notify '{"type": "email", ...}'
+```
+
+### Notes
+- v0.4 路线图最后一项，至此 v0.4 全部完成
+- 与 watch 变更检测形成完整闭环：发现变更 → 推送通知 → 人工处理
+
 ## [1.5.0] - 2026-05-28
 
 ### Added

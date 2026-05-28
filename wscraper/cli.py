@@ -126,6 +126,23 @@ def build_scrape_parser(sub):
     sub.add_argument("--table-name", default="scraped", help="SQLite 表名（默认: scraped）")
 
 
+def _parse_notifies(notify_strs):
+    """Parse --notify JSON strings into list of notification config dicts."""
+    configs = []
+    for s in notify_strs:
+        try:
+            cfg = json.loads(s)
+            configs.append(cfg)
+        except json.JSONDecodeError:
+            # Fallback: try to parse as type=url format
+            if "=" in s:
+                key, val = s.split("=", 1)
+                configs.append({"type": key.strip(), "url": val.strip()})
+            else:
+                print(f"⚠️  Could not parse notify config: {s}", file=sys.stderr)
+    return configs
+
+
 def run_scrape(args):
     """Execute the scrape command."""
     scraper = Scraper(
@@ -268,12 +285,17 @@ def run_watch(args):
         print(result["message"])
 
     elif args.watch_command == "check":
-        results = watcher.check_all()
+        on_change = _parse_notifies(args.notify) if args.notify else None
+        results = watcher.check_all(on_change=on_change)
         for r in results:
             print(r["message"])
             if r.get("diff"):
                 print("\n".join(r["diff"]))
                 print()
+            if r.get("notifications"):
+                for n in r["notifications"]:
+                    status = "✅" if n["ok"] else "❌"
+                    print(f"  {status} Notification [{n['type']}]: {'sent' if n['ok'] else n['result'].get('error', 'failed')}")
 
     elif args.watch_command == "list":
         watches = watcher.list_watches()
@@ -307,16 +329,21 @@ def run_watch(args):
     elif args.watch_command == "watch":
         """Continuous monitoring loop."""
         interval = args.interval or 3600
+        on_change = _parse_notifies(args.notify) if args.notify else None
         print(f"👀 Watching for changes (interval: {interval}s, Ctrl+C to stop)\n")
         try:
             while True:
-                results = watcher.check_all()
+                results = watcher.check_all(on_change=on_change)
                 for r in results:
                     if r["status"] == "changed":
                         print(r["message"])
                         if r.get("diff"):
                             print("\n".join(r["diff"]))
                             print()
+                        if r.get("notifications"):
+                            for n in r["notifications"]:
+                                status = "✅" if n["ok"] else "❌"
+                                print(f"  {status} Notification [{n['type']}]: {'sent' if n['ok'] else n['result'].get('error', 'failed')}")
                 print(f"⏰ Next check in {interval}s...")
                 time.sleep(interval)
         except KeyboardInterrupt:
@@ -345,9 +372,11 @@ def main():
     wa.add_argument("--name", "-n", help="监控名称")
     wa.add_argument("--select", "-s", help="CSS 选择器")
     wa.add_argument("--interval", "-i", type=int, help="检查间隔（秒，默认 3600）")
+    wa.add_argument("--notify", "-N", action="append", help="变更通知配置（JSON，可多次指定）")
 
     # watch check
-    watch_sub.add_parser("check", help="检查所有监控项")
+    wc = watch_sub.add_parser("check", help="检查所有监控项")
+    wc.add_argument("--notify", "-N", action="append", help="变更通知配置（JSON，可多次指定）")
 
     # watch list
     watch_sub.add_parser("list", help="列出所有监控项")
@@ -364,6 +393,7 @@ def main():
     # watch watch (continuous)
     ww = watch_sub.add_parser("watch", help="持续监控（循环检查）")
     ww.add_argument("--interval", "-i", type=int, help="检查间隔（秒，默认 3600）")
+    ww.add_argument("--notify", "-N", action="append", help="变更通知配置（JSON，可多次指定）")
 
     args = parser.parse_args()
 

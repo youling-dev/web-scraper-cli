@@ -182,7 +182,41 @@ wscraper watch remove --id 1
 ```
 
 > 💡 监控数据存储在 `wscraper_watches.db`（SQLite），支持持久化追踪。
-> 变更检测基于 SHA256 哈希对比，自动生�� unified diff。
+> 变更检测基于 SHA256 哈希对比，自动生成 unified diff。
+
+### 📬 变更通知
+
+支持多种通知渠道，在检测到变更时自动推送：
+
+```bash
+# Feishu 飞书通知
+wscraper watch check \
+  --notify '{"type": "feishu", "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/..."}'
+
+# DingTalk 钉钉通知
+wscraper watch check \
+  --notify '{"type": "dingtalk", "webhook": "https://oapi.dingtalk.com/robot/send?access_token=..."}'
+
+# Slack 通知
+wscraper watch check \
+  --notify '{"type": "slack", "webhook": "https://hooks.slack.com/services/..."}'
+
+# 通用 Webhook
+wscraper watch check \
+  --notify '{"type": "webhook", "url": "https://your-webhook.com/hook"}'
+
+# 邮件通知
+wscraper watch check \
+  --notify '{"type": "email", "host": "smtp.qq.com", "port": 465, "user": "you@qq.com", "pass": "xxx", "to": "admin@example.com"}'
+
+# 多渠道同时通知
+wscraper watch watch --interval 1800 \
+  --notify '{"type": "feishu", "webhook": "https://..."}' \
+  --notify '{"type": "email", "host": "smtp.x", "port": 465, "user": "u@x", "pass": "p", "to": "v@x"}'
+```
+
+> 💡 `--notify` 参数可多次指定，每个监控项检测到变更时将按配置推送通知。
+> 持续监控模式（`watch watch`）同样支持通知功能。
 
 ---
 

@@ -9,8 +9,116 @@ import sqlite3
 import hashlib
 import difflib
 import time
+import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from pathlib import Path
+from urllib.request import urlopen, Request
+
+
+class Notifier:
+    """Send notifications on detected changes."""
+
+    @staticmethod
+    def webhook(url, payload):
+        """Send a JSON payload to a webhook URL.
+
+        Supports generic HTTP POST webhooks (Feishu, DingTalk, Slack, etc.).
+        """
+        try:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            req = Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            resp = urlopen(req, timeout=15)
+            return {"ok": True, "status": resp.status}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    @staticmethod
+    def feishu(webhook_url, watch_name, diff_summary):
+        """Send a formatted card message to Feishu group chat.
+
+        Uses Feishu custom bot webhook.
+        """
+        text = f"🔔 **网页变更提醒**\n"
+        text += f"**页面**: {watch_name}\n"
+        text += f"**时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        text += f"**详情**: {diff_summary}"
+        return Notifier.webhook(webhook_url, {"msg_type": "text", "content": {"text": text}})
+
+    @staticmethod
+    def dingtalk(webhook_url, watch_name, diff_summary):
+        """Send message to DingTalk group chat.
+
+        Uses DingTalk custom bot webhook.
+        """
+        text = f"🔔 网页变更提醒\n"
+        text += f"页面: {watch_name}\n"
+        text += f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        text += f"详情: {diff_summary}"
+        return Notifier.webhook(webhook_url, {"msgtype": "text", "text": {"content": text}})
+
+    @staticmethod
+    def slack(webhook_url, watch_name, diff_summary):
+        """Send message to Slack channel via Incoming Webhook."""
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"🔔 *网页变更提醒*\n页面: {watch_name}\n时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n详情: {diff_summary}",
+                },
+            }
+        ]
+        return Notifier.webhook(webhook_url, {"blocks": blocks})
+
+    @staticmethod
+    def email(smtp_host, smtp_port, username, password, to_addr, watch_name, diff_summary, use_ssl=True):
+        """Send change notification via email.
+
+        Args:
+            smtp_host: SMTP server hostname
+            smtp_port: SMTP server port
+            username: SMTP login username
+            password: SMTP login password
+            to_addr: Recipient email address
+            watch_name: Watch name for subject/body
+            diff_summary: Change summary text
+            use_ssl: Use SSL connection (True) or STARTTLS (False)
+        """
+        try:
+            subject = f"[wscraper] 网页变更: {watch_name}"
+            body = f"""网页变更提醒
+
+页面: {watch_name}
+时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+详情: {diff_summary}
+
+-- 由 wscraper 自动生成
+"""
+            msg = MIMEMultipart()
+            msg["From"] = username
+            msg["To"] = to_addr
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+
+            if use_ssl:
+                server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30)
+            else:
+                server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+                server.starttls()
+            server.login(username, password)
+            server.send_message(msg)
+            server.quit()
+            return {"ok": True, "sent_to": to_addr}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
 
 class Watcher:
@@ -98,13 +206,20 @@ class Watcher:
         finally:
             conn.close()
 
-    def check_one(self, watch_id, fetch_fn=None, parser_fn=None):
+    def check_one(self, watch_id, fetch_fn=None, parser_fn=None, on_change=None):
         """Check a single watched URL for changes.
 
         Args:
             watch_id: Watch record ID
             fetch_fn: Optional custom fetch function (url) -> html
             parser_fn: Optional custom parse function (html, selector) -> text
+            on_change: Notification config dict or list of dicts.
+                Webhook: {"type": "webhook", "url": "https://..."}
+                Feishu: {"type": "feishu", "webhook": "https://open.feishu.cn/..."}
+                DingTalk: {"type": "dingtalk", "webhook": "https://oapi.dingtalk.com/..."}
+                Slack: {"type": "slack", "webhook": "https://hooks.slack.com/..."}
+                Email: {"type": "email", "host": "smtp.x", "port": 465,
+                         "user": "u@x", "pass": "p", "to": "v@x"}
 
         Returns:
             dict with change status and diff if changed
@@ -217,16 +332,65 @@ class Watcher:
             )
             conn.commit()
             conn.close()
+
+            # Send notifications
+            if on_change:
+                watch_name = watch["name"] or url
+                result.update(self._notify(watch_name, added, removed, on_change))
+
             return result
 
-    def check_all(self, fetch_fn=None, parser_fn=None):
+    def _notify(self, watch_name, added, removed, on_change):
+        """Execute notification(s) for a detected change."""
+        notifiers = Notifier()
+        configs = on_change if isinstance(on_change, list) else [on_change]
+        notifications = []
+        diff_summary = f"+{added} 行, -{removed} 行"
+
+        for cfg in configs:
+            ntype = cfg.get("type", "").lower()
+            ok = False
+
+            if ntype in ("feishu", "飞书"):
+                r = notifiers.feishu(cfg["webhook"], watch_name, diff_summary)
+                ok = r.get("ok", False)
+            elif ntype in ("dingtalk", "钉钉"):
+                r = notifiers.dingtalk(cfg["webhook"], watch_name, diff_summary)
+                ok = r.get("ok", False)
+            elif ntype == "slack":
+                r = notifiers.slack(cfg["webhook"], watch_name, diff_summary)
+                ok = r.get("ok", False)
+            elif ntype == "webhook":
+                payload = {
+                    "watch": watch_name,
+                    "timestamp": datetime.now().isoformat(),
+                    "added": added,
+                    "removed": removed,
+                }
+                r = notifiers.webhook(cfg["url"], payload)
+                ok = r.get("ok", False)
+            elif ntype == "email":
+                r = notifiers.email(
+                    cfg["host"], cfg.get("port", 465), cfg["user"],
+                    cfg["pass"], cfg["to"], watch_name, diff_summary,
+                    use_ssl=cfg.get("ssl", True),
+                )
+                ok = r.get("ok", False)
+            else:
+                r = {"error": f"Unknown notification type: {ntype}"}
+
+            notifications.append({"type": ntype, "ok": ok, "result": r})
+
+        return {"notifications": notifications}
+
+    def check_all(self, fetch_fn=None, parser_fn=None, on_change=None):
         """Check all watched URLs. Returns list of results."""
         conn = self._get_conn()
         watches = conn.execute("SELECT id FROM watches ORDER BY id").fetchall()
         conn.close()
         results = []
         for w in watches:
-            r = self.check_one(w["id"], fetch_fn=fetch_fn, parser_fn=parser_fn)
+            r = self.check_one(w["id"], fetch_fn=fetch_fn, parser_fn=parser_fn, on_change=on_change)
             results.append(r)
         return results
 
