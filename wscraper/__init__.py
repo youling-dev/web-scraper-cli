@@ -9,4 +9,4 @@ Author: 有灵 ✨ | youling-dev
 License: MIT
 """
 
-__version__ = "1.2.0"
+__version__ = "1.5.0"

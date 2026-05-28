@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.5.0] - 2026-05-28
+
+### Added
+- 🔔 `watch add <url>` — 添加网页监控，支持自定义名称和 CSS 选择器
+- 🔔 `watch check` — 一次性检查所有监控项的变更
+- 🔔 `watch watch` — 持续监控模式（循环检查，Ctrl+C 停止）
+- 🔔 `watch list` — 列出所有监控项及变更统计
+- 🔔 `watch history --id N` — 查看指定监控项的变更历史
+- 🔔 `watch remove --id N` — 删除监控项
+- 💾 变更数据持久化存储在 SQLite（wscraper_watches.db）
+- 📊 自动生成 unified diff 对比变更内容
+- 📈 变更统计（+N 行 / -N 行）
+
+### Technical
+- 新增 `Watcher` 类 — 完整的监控生命周期管理
+- SQLite 三表结构：watches（监控配置）、snapshots（历史快照）、changes（变更记录）
+- SHA256 哈希比变检测（前 16 位）
+- 支持 CSS 选择器定向监控（只监控页面指定区域）
+- 内置 fallback fetch（requests + fake-useragent）
+
+### Examples
+```bash
+# 添加监控
+wscraper watch add https://example.com --name "首页" --select ".price" --interval 3600
+
+# 检查变更
+wscraper watch check
+
+# 持续监控（每 30 分钟检查一次）
+wscraper watch watch --interval 1800
+
+# 查看监控列表
+wscraper watch list
+
+# 查看变更历史
+wscraper watch history --id 1 --limit 10
+
+# 删除监控
+wscraper watch remove --id 1
+```
+
+### Notes
+- v0.4 路线图第二项，与 SQLite 导出形成完整的数据追踪闭环
+- 适用场景：价格监控、内容更新提醒、竞品追踪
+
 ## [1.4.0] - 2026-05-28
 
 ### Added

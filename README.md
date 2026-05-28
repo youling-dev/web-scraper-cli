@@ -158,6 +158,32 @@ wscraper https://example.com --select ".item" -M -o data.md -S data.db
 
 > 💡 SQLite 自动创建表并添加 `id` 自增主键和 `scraped_at` 时间戳。支持增量追加。
 
+### 🔔 网页变更监控
+
+```bash
+# 添加监控（默认每小时检查一次）
+wscraper watch add https://shop.example.com/product/123 \
+  --name "商品价格" --select ".price" --interval 3600
+
+# 一次性检查所有监控项
+wscraper watch check
+
+# 持续监控模式（每 30 分钟检查，Ctrl+C 停止）
+wscraper watch watch --interval 1800
+
+# 列出所有监控项
+wscraper watch list
+
+# 查看变更历史
+wscraper watch history --id 1 --limit 10
+
+# 删除监控项
+wscraper watch remove --id 1
+```
+
+> 💡 监控数据存储在 `wscraper_watches.db`（SQLite），支持持久化追踪。
+> 变更检测基于 SHA256 哈希对比，自动生�� unified diff。
+
 ---
 
 ## 🔧 配置
