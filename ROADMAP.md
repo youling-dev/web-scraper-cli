@@ -1,7 +1,7 @@
 # 🗺️ Web Scraper CLI - 路线图
 
-> 当前版本：v1.8.0 | 路线图版本：v0.5+
-> 最后更新：2026-05-30
+> 当前版本：v1.9.0 | 路线图版本：v0.5+
+> 最后更新：2026-05-31
 
 ---
 
@@ -43,10 +43,10 @@
    - `--robotstxt` — 遵守 robots.txt
 
 ### P1 — 认证与访问
-4. **认证支持**
-   - Basic Auth（`--auth user:pass`）
-   - Cookie 注入（`--cookie-jar cookies.txt` / `--cookie key=value`）
-   - Bearer Token（`--token xxx`）
+4. ✅ **认证支持** (v1.9.0)
+   - ✅ Basic Auth（`--auth user:pass`）
+   - ✅ Cookie 注入（`--cookie-jar cookies.txt` / `--cookie key=value`）
+   - ✅ Bearer Token（`--token xxx`）
    - 自定义 Header（已有 `--headers`，需增强）
 
 5. **JS 渲染页面支持**
@@ -56,10 +56,10 @@
    - 仅对 SPA/JS 重渲染页面启用
 
 ### P1 — 可维护性
-6. **测试套件**
-   - 单元测试（pytest）
-   - 对每个子命令的基本覆盖
-   - CI 集成（GitHub Actions）
+6. ✅ **测试套件** (v1.9.0)
+   - ✅ 116 个单元测试（pytest），全部通过
+   - ✅ 覆盖 auth、cache、robots、schema、scraper 五大模块
+   - ✅ CI 集成（GitHub Actions）
 
 ### P2 — 扩展能力
 7. **Python API 模式**
@@ -91,8 +91,8 @@
 | 版本 | 目标 | 预计 |
 |------|------|------|
 | ✅ v1.8.0 | P0 全部完成（Schema/缓存/限速/robots.txt） | 2026-05-30 |
-| v1.9.0 | P1 认证 + JS 渲染 | v0.5 第二阶段 |
-| v2.0.0 | P1 测试 + P2 API 模式 | v0.5 收官 / 大版本 |
+| ✅ v1.9.0 | P1 认证 + 测试套件（116 tests） | 2026-05-31 |
+| v2.0.0 | P1 JS渲染 + P2 API模式 + pip publish | v0.5 收官 / 大版本 |
 
 > **v2.0 愿景：** 从 CLI 工具进化为完整的 Web 数据采集平台。
 
