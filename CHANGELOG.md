@@ -1,8 +1,17 @@
 # Changelog
 
-## [1.8.0] - 2026-05-29
+## [1.8.0] - 2026-05-30
 
 ### Added
+- ✅ **JSON Schema 输出验证** — 自动校验抓取结果是否符合预期结构，防止网站改版导致数据断裂
+- ✅ `--schema <path|json>` — JSON Schema 文件路径或 JSON 字符串
+- ✅ `--schema-mode warn|filter|strict` — 验证模式（默认 warn：保留全部+警告）
+- ✅ 支持标准 JSON Schema Draft 7 子集及简化语法
+- ✅ **robots.txt 解析器** — 自动获取并遵守目标网站的 robots.txt 规则
+- ✅ `--robotstxt` — 启用 robots.txt 检查
+- ✅ **按域名限速** — Token bucket 算法，多域名独立限速
+- ✅ `--rate-limit rpm=30,delay=2.0` — 配置每域名请求频率
+- ✅ `--user-agent` — 自定义 User-Agent
 - 💾 **HTTP 缓存层** — 自动缓存 GET 响应，减少重复请求
 - 💾 `--cache` / `--no-cache` — 启用/禁用 HTTP 缓存
 - 💾 `--cache-ttl` — 缓存默认 TTL（秒，默认 300）
