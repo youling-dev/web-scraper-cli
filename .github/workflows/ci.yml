@@ -27,6 +27,8 @@ jobs:
           python -m py_compile wscraper/cli.py
           python -m py_compile wscraper/scraper.py
           python -m py_compile wscraper/extractor.py
+          python -m py_compile wscraper/schema.py
+          python -m py_compile wscraper/robots.py
       - name: Install test dependencies
         run: |
           pip install pytest
