@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="web-scraper-cli",
-    version="1.8.0",
+    version="1.9.0",
     description="轻量网页爬虫 CLI 工具。支持代理、定时、反检测、变更监控、数据导出。",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
