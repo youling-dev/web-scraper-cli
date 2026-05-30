@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.9.0] - 2026-05-31
+
+### Added
+- ✅ **认证支持** — Basic Auth、Bearer Token、Cookie 注入（`wscraper/auth.py`）
+- ✅ `--auth user:pass` — HTTP Basic 认证
+- ✅ `--token <bearer>` — Bearer Token 认证
+- ✅ `--cookie-jar <path>` — Netscape 格式 Cookie 文件
+- ✅ `--cookie key=value` — 单个 Cookie 注入
+- ✅ **测试套件** — 116 个单元测试，覆盖 auth、cache、robots、schema、scraper
+- ✅ 使用 pytest，支持 CI 集成
+
+### Fixed
+- ✅ 修复 cache.py 中的潜在问题
+- ✅ 修复 robots.py 路径匹配逻辑（`_url_matches` → `_path_matches`）
+- ✅ 修复 RateLimiter 在 Python 3.10+ 的 `asyncio.get_event_loop()` 报错
+- ✅ CLI 参数补全（认证相关）
+
+### Usage
+```bash
+# Basic Auth
+wscraper https://api.example.com --select ".data" --auth user:pass
+
+# Bearer Token
+wscraper https://api.example.com --select ".data" --token YOUR_TOKEN
+
+# Cookie
+wscraper https://example.com --select ".content" --cookie-jar cookies.txt
+```
+
 ## [1.8.0] - 2026-05-30
 
 ### Added
