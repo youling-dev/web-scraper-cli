@@ -128,6 +128,9 @@ class HTTPCache:
         max_age = self._parse_cache_control(headers)
         if max_age is not None and max_age > 0:
             ttl = max_age
+        elif max_age == 0:
+            # no-store / no-cache: don't cache at all
+            return
         else:
             ttl = self.default_ttl
 

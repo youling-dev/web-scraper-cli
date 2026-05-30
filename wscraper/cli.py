@@ -23,6 +23,7 @@ from .watcher import Watcher
 from .cache import HTTPCache
 from .schema import SchemaValidator
 from .robots import RobotsParser, RateLimiter
+from .auth import AuthManager
 
 
 def parse_interval(s):
@@ -137,6 +138,11 @@ def build_scrape_parser(sub):
     sub.add_argument("--robotstxt", action="store_true", help="遵守 robots.txt")
     sub.add_argument("--rate-limit", help="按域名限速，格式 rpm=30,delay=2.0")
     sub.add_argument("--user-agent", help="自定义 User-Agent")
+    # Auth (v1.9.0)
+    sub.add_argument("--auth", help="Basic Auth（格式 user:pass）")
+    sub.add_argument("--token", help="Bearer Token")
+    sub.add_argument("--cookie", action="append", help="Cookie（格式 key=value，可多次指定）")
+    sub.add_argument("--cookie-jar", help="Cookie 文件路径（Netscape/Mozilla 格式）")
 
 
 def _parse_notifies(notify_strs):
@@ -184,6 +190,31 @@ def run_scrape(args):
         cache=args.cache,
         cache_ttl=args.cache_ttl,
     )
+
+    # Auth setup (v1.9.0)
+    auth_mgr = None
+    if args.auth or args.token or args.cookie or args.cookie_jar:
+        auth_mgr = AuthManager()
+        if args.auth:
+            parts = args.auth.split(":", 1)
+            auth_mgr.set_basic(parts[0], parts[1] if len(parts) > 1 else "")
+        if args.token:
+            auth_mgr.set_bearer(args.token)
+        if args.cookie_jar:
+            auth_mgr.set_cookies_from_file(args.cookie_jar)
+        elif args.cookie:
+            pairs = []
+            for c in args.cookie:
+                if "=" in c:
+                    k, v = c.split("=", 1)
+                    pairs.append((k.strip(), v.strip()))
+            if pairs:
+                auth_mgr.set_cookies_from_pairs(pairs, domain="")
+        # Merge auth headers into scraper session
+        auth_headers = auth_mgr.get_headers(args.url)
+        if auth_headers:
+            scraper.session.headers.update(auth_headers)
+            print(f"🔐 Auth configured: {list(auth_headers.keys())}")
 
     # Schema validator
     validator = None

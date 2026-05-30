@@ -26,9 +26,12 @@ import requests
 
 
 def _url_path(url: str) -> str:
-    """Extract path from URL for robots.txt matching."""
+    """Extract path + query from URL for robots.txt matching."""
     parsed = urlparse(url)
-    return parsed.path or "/"
+    path = parsed.path or "/"
+    if parsed.query:
+        path = path + "?" + parsed.query
+    return path
 
 
 class RobotsParser:
@@ -179,9 +182,10 @@ class RobotsParser:
         if rule == "*":
             return True
 
-        # Handle wildcard
-        if "*" in rule:
-            pattern = re.escape(rule).replace(r"\*", ".*")
+        # Handle wildcard: * → .*, $ stays as regex end-of-string anchor
+        if "*" in rule or "$" in rule:
+            # Escape the rule, then un-escape * to .* and $ to $ (regex anchor)
+            pattern = re.escape(rule).replace(r"\*", ".*").replace(r"\$", "$")
             return bool(re.match(f"^{pattern}$", path, re.IGNORECASE))
 
         # Simple prefix match on path

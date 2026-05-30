@@ -545,13 +545,8 @@ class Scraper:
         # Insert rows
         placeholders = ", ".join([f'"{k}"' for k in keys])
         question_marks = ", ".join(["?" for _ in keys])
-        cursor.execute(f"""
-            INSERT INTO "{table_name}" ({placeholders})
-            VALUES ({question_marks})
-        """, [str(row.get(k, "")) for k in keys])
-
-        # Bulk insert for remaining rows
-        for row in data[1:]:
+        # Insert all rows
+        for row in data:
             cursor.execute(f"""
                 INSERT INTO "{table_name}" ({placeholders})
                 VALUES ({question_marks})
