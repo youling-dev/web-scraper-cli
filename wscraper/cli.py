@@ -16,10 +16,13 @@ import time
 import asyncio
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .scraper import Scraper
 from .watcher import Watcher
 from .cache import HTTPCache
+from .schema import SchemaValidator
+from .robots import RobotsParser, RateLimiter
 
 
 def parse_interval(s):
@@ -128,6 +131,12 @@ def build_scrape_parser(sub):
     sub.add_argument("--cache", dest="cache", action="store_true", default=None, help="启用 HTTP 缓存")
     sub.add_argument("--no-cache", dest="cache", action="store_false", help="禁用 HTTP 缓存")
     sub.add_argument("--cache-ttl", type=int, default=300, help="缓存默认 TTL（秒，默认 300）")
+    sub.add_argument("--schema", help="JSON Schema 验证（文件路径或 JSON 字符串）")
+    sub.add_argument("--schema-mode", choices=["warn", "filter", "strict"], default="warn",
+                     help="Schema 验证模式：warn(保留全部+警告), filter(过滤无效), strict(报错退出)")
+    sub.add_argument("--robotstxt", action="store_true", help="遵守 robots.txt")
+    sub.add_argument("--rate-limit", help="按域名限速，格式 rpm=30,delay=2.0")
+    sub.add_argument("--user-agent", help="自定义 User-Agent")
 
 
 def _parse_notifies(notify_strs):
@@ -147,6 +156,24 @@ def _parse_notifies(notify_strs):
     return configs
 
 
+def _parse_rate_limit(s):
+    """Parse --rate-limit string like 'rpm=30,delay=2.0'."""
+    rpm = 30
+    delay = 2.0
+    if s:
+        for part in s.split(","):
+            part = part.strip()
+            if "=" in part:
+                k, v = part.split("=", 1)
+                k = k.strip().lower()
+                v = v.strip()
+                if k == "rpm":
+                    rpm = int(v)
+                elif k == "delay":
+                    delay = float(v)
+    return rpm, delay
+
+
 def run_scrape(args):
     """Execute the scrape command."""
     scraper = Scraper(
@@ -157,6 +184,25 @@ def run_scrape(args):
         cache=args.cache,
         cache_ttl=args.cache_ttl,
     )
+
+    # Schema validator
+    validator = None
+    if args.schema:
+        try:
+            if Path(args.schema).exists():
+                validator = SchemaValidator.from_file(args.schema)
+            else:
+                validator = SchemaValidator.from_string(args.schema)
+        except Exception as e:
+            print(f"⚠️  Failed to load schema: {e}", file=sys.stderr)
+
+    # robots.txt cache
+    robots_cache = {}
+    # Rate limiter
+    rate_limiter = None
+    if args.rate_limit:
+        rpm, delay = _parse_rate_limit(args.rate_limit)
+        rate_limiter = RateLimiter(default_delay=delay, default_rpm=rpm)
 
     urls = [args.url]
 
@@ -239,8 +285,33 @@ def run_scrape(args):
                     all_data.extend(br.get("data", []))
             else:
                 for url in urls:
+                    # robots.txt check
+                    if args.robotstxt:
+                        parsed_url = urlparse(url)
+                        domain = parsed_url.netloc
+                        if domain not in robots_cache:
+                            robots_cache[domain] = RobotsParser.fetch(url, timeout=args.timeout)
+                            if robots_cache[domain].is_permissive:
+                                print(f"  📜 robots.txt: no rules for {domain}")
+                            else:
+                                print(f"  📜 robots.txt: {len(robots_cache[domain].rules)} rules for {domain}")
+                        if not robots_cache[domain].is_allowed(url, user_agent=getattr(args, 'user_agent', 'wscraper') or 'wscraper'):
+                            print(f"  🚫 Blocked by robots.txt: {url}")
+                            continue
+
+                    # Rate limit check
+                    if rate_limiter:
+                        wait = rate_limiter.wait_time(url)
+                        if wait > 0:
+                            print(f"  ⏳ Rate limit: waiting {wait:.1f}s for {urlparse(url).netloc}")
+                            time.sleep(wait)
+
                     print(f"🕷️  Fetching: {url}")
                     html = scraper.fetch(url)
+
+                    # Record request for rate limiting
+                    if rate_limiter:
+                        rate_limiter.record_request(url)
 
                     if args.links:
                         data = scraper.extract_links(html, url)
@@ -258,6 +329,14 @@ def run_scrape(args):
                     unique=args.unique,
                     field=args.field,
                 )
+
+            # Schema validation
+            if validator and all_data:
+                all_data, val_results = validator.validate_and_filter(all_data, mode=args.schema_mode)
+                valid_count = sum(1 for r in val_results if r["valid"])
+                invalid_count = len(val_results) - valid_count
+                if invalid_count > 0:
+                    print(f"\n⚠️  Schema validation: {valid_count} valid, {invalid_count} invalid", file=sys.stderr)
 
             fmt = "markdown" if args.markdown else args.format
             print(f"\n📊 Extracted {len(all_data)} items\n")
