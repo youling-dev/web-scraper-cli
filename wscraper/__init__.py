@@ -15,7 +15,7 @@ Author: 有灵 ✨ | youling-dev
 License: MIT
 """
 
-__version__ = "1.9.0"
+__version__ = "2.0.0"
 
 from .scraper import Scraper
 
