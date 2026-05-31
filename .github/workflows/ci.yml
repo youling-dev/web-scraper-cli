@@ -29,9 +29,6 @@ jobs:
           python -m py_compile wscraper/extractor.py
           python -m py_compile wscraper/schema.py
           python -m py_compile wscraper/robots.py
-      - name: Install test dependencies
-        run: |
-          pip install pytest
       - name: Run tests
         run: |
           python -m pytest tests/ -v --tb=short

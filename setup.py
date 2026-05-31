@@ -13,7 +13,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "requests>=2.28",
-        "httpx>=0.25",
+        "httpx>=0.25,<0.28",
         "beautifulsoup4>=4.12",
         "fake-useragent>=1.4",
         "lxml>=4.9",
