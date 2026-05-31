@@ -24,7 +24,22 @@ class Scraper:
     DEFAULT_DELAY = 2
     DEFAULT_RETRIES = 3
 
-    def __init__(self, timeout=None, delay=None, retries=None, proxies=None, headers=None, cache=None, cache_ttl=300):
+    def __init__(
+        self,
+        timeout=None,
+        delay=None,
+        retries=None,
+        proxies=None,
+        headers=None,
+        cache=None,
+        cache_ttl=300,
+        render_js=False,
+        headless=True,
+        render_wait_for=None,
+        render_wait_until="networkidle",
+        render_user_agent=None,
+        render_browser_type="chromium",
+    ):
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self.delay = delay or self.DEFAULT_DELAY
         self.retries = retries or self.DEFAULT_RETRIES
@@ -42,6 +57,28 @@ class Scraper:
         self._cache_hits = 0
         self._cache_misses = 0
 
+        # JS rendering (v2.0.0)
+        self.render_js = render_js
+        self.headless = headless
+        self.render_wait_for = render_wait_for
+        self.render_wait_until = render_wait_until
+        self.render_user_agent = render_user_agent
+        self.render_browser_type = render_browser_type
+        self._renderer = None
+
+    @property
+    def renderer(self):
+        """Lazy-init JS renderer."""
+        if self._renderer is None and self.render_js:
+            from .renderer import JSRenderer
+            self._renderer = JSRenderer(
+                headless=self.headless,
+                user_agent=self.render_user_agent,
+                browser_type=self.render_browser_type,
+                timeout=self.timeout * 1000,
+            )
+        return self._renderer
+
     def _get_headers(self):
         return {
             "User-Agent": self.ua.random,
@@ -52,8 +89,25 @@ class Scraper:
             "Upgrade-Insecure-Requests": "1",
         }
 
-    def fetch(self, url):
-        """Fetch a URL with retry, anti-detection, and optional HTTP cache."""
+    def fetch(self, url, render=None):
+        """Fetch a URL with retry, anti-detection, and optional HTTP cache.
+
+        Args:
+            url: Target URL
+            render: Override JS rendering (True/False). Defaults to self.render_js
+        """
+        use_render = render if render is not None else self.render_js
+
+        # Use JS renderer if enabled
+        if use_render:
+            r = self.renderer
+            if r is not None:
+                return r.render(
+                    url,
+                    wait_for=self.render_wait_for,
+                    wait_until=self.render_wait_until,
+                )
+
         # Check cache first
         cached = self.cache.get(url)
         if cached is not None:

@@ -143,6 +143,13 @@ def build_scrape_parser(sub):
     sub.add_argument("--token", help="Bearer Token")
     sub.add_argument("--cookie", action="append", help="Cookie（格式 key=value，可多次指定）")
     sub.add_argument("--cookie-jar", help="Cookie 文件路径（Netscape/Mozilla 格式）")
+    # JS rendering (v2.0.0)
+    sub.add_argument("--render", action="store_true", help="启用 JS 渲染（需安装 playwright）")
+    sub.add_argument("--headless", action="store_true", default=True, help="无头模式（默认开启）")
+    sub.add_argument("--no-headless", dest="headless", action="store_false", help="有头模式（可视化浏览器）")
+    sub.add_argument("--wait-for", help="等待 CSS 选择器出现后再提取")
+    sub.add_argument("--wait-until", choices=["networkidle", "load", "domcontentloaded", "commit"],
+                     default="networkidle", help="页面加载等待策略")
 
 
 def _parse_notifies(notify_strs):

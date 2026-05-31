@@ -1,5 +1,12 @@
 from setuptools import setup, find_packages
 
+# Optional dependencies
+extras = {
+    "render": ["playwright>=1.40"],
+    "test": ["pytest>=7.0", "pytest-asyncio>=0.21"],
+    "dev": ["pytest>=7.0", "pytest-asyncio>=0.21", "playwright>=1.40", "build", "twine"],
+}
+
 setup(
     name="web-scraper-cli",
     version="1.9.0",
@@ -31,4 +38,6 @@ setup(
         "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
+    extras_require=extras,
+    package_data={"wscraper": ["py.typed"]},
 )
