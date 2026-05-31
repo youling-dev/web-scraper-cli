@@ -1,5 +1,46 @@
 # Changelog
 
+## [2.0.0] - 2026-05-31
+
+### Breaking
+- 大版本升级，功能完整度大幅提升
+- `setup.py` 重构，引入 `extras_require` 可选依赖分组
+
+### Added
+- ✅ **JS 渲染支持** — Playwright 驱动的 SPA 页面抓取（`wscraper/renderer.py`）
+- ✅ `--render` — 启用 JS 渲染模式
+- ✅ `--headless` / `--no-headless` — 无头/有头浏览器切换
+- ✅ `--wait-for <selector>` — 等待指定选择器加载完成
+- ✅ `--wait-until <strategy>` — 加载策略（load/networkidle/domcontentloaded）
+- ✅ **Python API 模式** — `from wscraper import Scraper` 作为库使用
+- ✅ `docs/API.md` — 完整 Python API 参考文档
+- ✅ `MANIFEST.in` — 规范打包文件范围
+- ✅ setup.py `extras_require`：`[render]`、`[test]`、`[dev]`
+
+### Technical
+- `Scraper.__init__()` 新增 `render_js`、`render_wait_for`、`render_wait_until` 参数
+- `Scraper.fetch()` 自动切换渲染/普通抓取
+- `renderer.py` 实现 `JSRenderer` 类（222 行），支持懒加载
+- 新增 `tests/test_renderer.py`（10 个测试）
+- 测试总数：126 个，全部通过
+
+### Usage
+```bash
+# JS 渲染抓取
+wscraper https://spa.example.com --render --select ".content"
+
+# 等待特定元素加载
+wscraper https://app.example.com --render --wait-for "#app-loaded"
+
+# 作为 Python 库
+from wscraper import Scraper
+scraper = Scraper()
+html = scraper.fetch("https://example.com")
+results = scraper.parse(html, select="title, p")
+```
+
+---
+
 ## [1.9.0] - 2026-05-31
 
 ### Added

@@ -1,6 +1,6 @@
 # 🗺️ Web Scraper CLI - 路线图
 
-> 当前版本：v1.9.0 | 路线图版本：v0.5+
+> 当前版本：v2.0.0 | 路线图版本：v0.5 完成
 > 最后更新：2026-05-31
 
 ---
@@ -47,25 +47,26 @@
    - ✅ Basic Auth（`--auth user:pass`）
    - ✅ Cookie 注入（`--cookie-jar cookies.txt` / `--cookie key=value`）
    - ✅ Bearer Token（`--token xxx`）
-   - 自定义 Header（已有 `--headers`，需增强）
+   - ✅ 自定义 Header（`--headers`）
 
-5. **JS 渲染页面支持**
-   - 可选依赖 Playwright/Selenium
-   - `--render` 标记启用
-   - 等待特定选择器加载完成
-   - 仅对 SPA/JS 重渲染页面启用
+5. ✅ **JS 渲染页面支持** (v2.0.0)
+   - ✅ 可选依赖 Playwright
+   - ✅ `--render` 标记启用
+   - ✅ `--wait-for` 等待特定选择器
+   - ✅ `--wait-until` 加载策略
+   - ✅ headless/headed 模式切换
 
 ### P1 — 可维护性
 6. ✅ **测试套件** (v1.9.0)
-   - ✅ 116 个单元测试（pytest），全部通过
-   - ✅ 覆盖 auth、cache、robots、schema、scraper 五大模块
+   - ✅ 126 个单元测试（pytest），全部通过
+   - ✅ 覆盖 auth、cache、robots、schema、scraper、renderer 六大模块
    - ✅ CI 集成（GitHub Actions）
 
 ### P2 — 扩展能力
-7. **Python API 模式**
-   - `from wscraper import Scraper`
-   - 作为库被其他项目 import
-   - 程序化配置，不依赖 CLI 参数
+7. ✅ **Python API 模式** (v2.0.0)
+   - ✅ `from wscraper import Scraper`
+   - ✅ 完整的 Python 库 API
+   - ✅ `docs/API.md` 参考文档
 
 8. **智能内容提取**
    - 自动识别页面主体内容区域
